@@ -16,27 +16,24 @@
 
 package com.example;
 
+import io.grpc.Context;
 import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
+import io.grpc.Status;
 
-/**
- * An optional ServerInterceptor that can interrupt server calls that are running for too long time.
- * In this way, it prevents problematic code from using up all threads.
- *
- * <p>How to use: you can add it to your server using ServerBuilder#intercept(ServerInterceptor).
- *
- * <p>Limitation: it only applies the timeout to unary calls
- * (streaming calls will still run without timeout).
- */
-public class ServerCallTimeoutInterceptor implements ServerInterceptor {
+import java.util.concurrent.Executor;
 
-  private final ServerTimeoutManager timeoutManager;
+public class CancellableTimeoutInterceptor implements ServerInterceptor {
 
-  public ServerCallTimeoutInterceptor(ServerTimeoutManager timeoutManager) {
+  private final CancellableTimeoutManager timeoutManager;
+  private final Executor executor;
+
+  public CancellableTimeoutInterceptor(CancellableTimeoutManager timeoutManager, Executor executor) {
     this.timeoutManager = timeoutManager;
+    this.executor = executor;
   }
 
   @Override
@@ -46,6 +43,15 @@ public class ServerCallTimeoutInterceptor implements ServerInterceptor {
       ServerCallHandler<ReqT, RespT> serverCallHandler) {
     // Only intercepts unary calls because the timeout is inapplicable to streaming calls.
     if (serverCall.getMethodDescriptor().getType().clientSendsOneMessage()) {
+      var cancellationListener = new Context.CancellationListener() {
+        @Override
+        public void cancelled(Context context) {
+          serverCall.close(Status.ABORTED, metadata);
+          Thread.currentThread().interrupt();
+        }
+      };
+      Context.current().addListener(cancellationListener, executor);
+
       return new TimeoutServerCallListener<>(
               serverCallHandler.startCall(serverCall, metadata), timeoutManager);
     } else {
@@ -57,11 +63,11 @@ public class ServerCallTimeoutInterceptor implements ServerInterceptor {
   private static class TimeoutServerCallListener<ReqT>
       extends ForwardingServerCallListener.SimpleForwardingServerCallListener<ReqT> {
 
-    private final ServerTimeoutManager timeoutManager;
+    private final CancellableTimeoutManager timeoutManager;
 
     private TimeoutServerCallListener(
         ServerCall.Listener<ReqT> delegate,
-        ServerTimeoutManager timeoutManager) {
+        CancellableTimeoutManager timeoutManager) {
       super(delegate);
       this.timeoutManager = timeoutManager;
     }

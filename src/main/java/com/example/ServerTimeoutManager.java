@@ -30,7 +30,7 @@ public class ServerTimeoutManager {
 
   private final Consumer<String> logFunction;
 
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+  public final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
   /**
    * Creates a manager. Please make it a singleton and remember to shut it down.
