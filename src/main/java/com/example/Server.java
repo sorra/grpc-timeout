@@ -22,13 +22,15 @@ public class Server {
 
         ServerInterceptor interceptor;
         if (args.length == 0) {
+            // My way
             var timeoutManager = new ServerTimeoutManager(100, TimeUnit.MILLISECONDS, null);
             Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
             interceptor = new ServerCallTimeoutInterceptor(timeoutManager);
         } else {
-            var timeoutManager = new CancellableTimeoutManager(100, TimeUnit.MILLISECONDS);
+            // Alternative way
+            var timeoutManager = new ContextTimeoutManager(100, TimeUnit.MILLISECONDS);
             Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
-            interceptor = new CancellableTimeoutInterceptor(timeoutManager, serverExecutor);
+            interceptor = new ContextTimeoutInterceptor(timeoutManager, serverExecutor);
         }
 
         startGrpcServer(serverExecutor, interceptor).awaitTermination();

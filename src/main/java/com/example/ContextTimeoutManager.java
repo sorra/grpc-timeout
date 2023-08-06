@@ -8,7 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /** A global instance that manages server call timeouts. */
-public class CancellableTimeoutManager {
+public class ContextTimeoutManager {
 
     private final int timeout;
     private final TimeUnit unit;
@@ -22,7 +22,7 @@ public class CancellableTimeoutManager {
      *     check timeout.
      * @param unit The unit of the timeout.
      */
-    public CancellableTimeoutManager(int timeout, TimeUnit unit) {
+    public ContextTimeoutManager(int timeout, TimeUnit unit) {
         this.timeout = timeout;
         this.unit = unit;
     }

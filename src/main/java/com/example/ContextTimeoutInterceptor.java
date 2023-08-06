@@ -26,12 +26,12 @@ import io.grpc.Status;
 
 import java.util.concurrent.Executor;
 
-public class CancellableTimeoutInterceptor implements ServerInterceptor {
+public class ContextTimeoutInterceptor implements ServerInterceptor {
 
-  private final CancellableTimeoutManager timeoutManager;
+  private final ContextTimeoutManager timeoutManager;
   private final Executor executor;
 
-  public CancellableTimeoutInterceptor(CancellableTimeoutManager timeoutManager, Executor executor) {
+  public ContextTimeoutInterceptor(ContextTimeoutManager timeoutManager, Executor executor) {
     this.timeoutManager = timeoutManager;
     this.executor = executor;
   }
@@ -63,11 +63,11 @@ public class CancellableTimeoutInterceptor implements ServerInterceptor {
   private static class TimeoutServerCallListener<ReqT>
       extends ForwardingServerCallListener.SimpleForwardingServerCallListener<ReqT> {
 
-    private final CancellableTimeoutManager timeoutManager;
+    private final ContextTimeoutManager timeoutManager;
 
     private TimeoutServerCallListener(
         ServerCall.Listener<ReqT> delegate,
-        CancellableTimeoutManager timeoutManager) {
+        ContextTimeoutManager timeoutManager) {
       super(delegate);
       this.timeoutManager = timeoutManager;
     }
