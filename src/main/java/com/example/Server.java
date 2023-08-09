@@ -18,22 +18,20 @@ import java.util.concurrent.TimeUnit;
 public class Server {
 
     public static void main(String[] args) throws Exception {
-        ExecutorService serverExecutor = Executors.newFixedThreadPool(2);
-
         ServerInterceptor interceptor;
-        if (args.length == 0) {
+        if (args.length > 0) {
             // My way
             var timeoutManager = new ServerTimeoutManager(100, TimeUnit.MILLISECONDS, null);
             Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
             interceptor = new ServerCallTimeoutInterceptor(timeoutManager);
         } else {
-            // Alternative way
+            // Officially recommended way
             var timeoutManager = new ContextTimeoutManager(100, TimeUnit.MILLISECONDS);
             Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
-            interceptor = new ContextTimeoutInterceptor(timeoutManager, serverExecutor);
+            interceptor = new ContextTimeoutInterceptor(timeoutManager);
         }
 
-        startGrpcServer(serverExecutor, interceptor).awaitTermination();
+        startGrpcServer(Executors.newFixedThreadPool(2), interceptor).awaitTermination();
     }
 
     private static io.grpc.Server startGrpcServer(ExecutorService serverExecutor, ServerInterceptor interceptor) throws IOException {
@@ -64,7 +62,8 @@ public class Server {
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
-                responseObserver.onError(new StatusRuntimeException(Status.ABORTED));
+                responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription(e.getMessage())));
+                return;
             }
             System.out.println("Not interrupted.");
 

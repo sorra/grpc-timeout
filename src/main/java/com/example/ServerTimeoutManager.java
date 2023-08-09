@@ -58,7 +58,7 @@ public class ServerTimeoutManager {
    *
    * @param invocation The RPC method invocation that processes a request.
    */
-  public void intercept(Runnable invocation) {
+  public void withTimeout(Runnable invocation) {
     if (timeout <= 0) {
       invocation.run();
       return;

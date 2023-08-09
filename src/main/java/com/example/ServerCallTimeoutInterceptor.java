@@ -72,7 +72,7 @@ public class ServerCallTimeoutInterceptor implements ServerInterceptor {
      */
     @Override
     public void onHalfClose() {
-      timeoutManager.intercept(super::onHalfClose);
+      timeoutManager.withTimeout(super::onHalfClose);
     }
   }
 }

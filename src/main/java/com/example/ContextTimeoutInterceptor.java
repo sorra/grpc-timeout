@@ -16,24 +16,18 @@
 
 package com.example;
 
-import io.grpc.Context;
 import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
-import io.grpc.Status;
-
-import java.util.concurrent.Executor;
 
 public class ContextTimeoutInterceptor implements ServerInterceptor {
 
   private final ContextTimeoutManager timeoutManager;
-  private final Executor executor;
 
-  public ContextTimeoutInterceptor(ContextTimeoutManager timeoutManager, Executor executor) {
+  public ContextTimeoutInterceptor(ContextTimeoutManager timeoutManager) {
     this.timeoutManager = timeoutManager;
-    this.executor = executor;
   }
 
   @Override
@@ -43,15 +37,6 @@ public class ContextTimeoutInterceptor implements ServerInterceptor {
       ServerCallHandler<ReqT, RespT> serverCallHandler) {
     // Only intercepts unary calls because the timeout is inapplicable to streaming calls.
     if (serverCall.getMethodDescriptor().getType().clientSendsOneMessage()) {
-      var cancellationListener = new Context.CancellationListener() {
-        @Override
-        public void cancelled(Context context) {
-          serverCall.close(Status.ABORTED, metadata);
-          Thread.currentThread().interrupt();
-        }
-      };
-      Context.current().addListener(cancellationListener, executor);
-
       return new TimeoutServerCallListener<>(
               serverCallHandler.startCall(serverCall, metadata), timeoutManager);
     } else {
@@ -78,7 +63,7 @@ public class ContextTimeoutInterceptor implements ServerInterceptor {
      */
     @Override
     public void onHalfClose() {
-      timeoutManager.intercept(super::onHalfClose);
+      timeoutManager.withTimeout(super::onHalfClose);
     }
   }
 }
