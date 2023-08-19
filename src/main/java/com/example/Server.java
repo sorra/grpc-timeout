@@ -26,7 +26,7 @@ public class Server {
             interceptor = new ServerCallTimeoutInterceptor(timeoutManager);
         } else {
             // Officially recommended way
-            var timeoutManager = new ContextTimeoutManager(100, TimeUnit.MILLISECONDS);
+            var timeoutManager = new ContextTimeoutManager(100, TimeUnit.MILLISECONDS, null);
             Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
             interceptor = new ContextTimeoutInterceptor(timeoutManager);
         }
