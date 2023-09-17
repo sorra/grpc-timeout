@@ -3,6 +3,8 @@ package com.example;
 import com.example.helloworld.GreeterGrpc;
 import com.example.helloworld.HelloReply;
 import com.example.helloworld.HelloRequest;
+import com.example.util.ServerCallTimeoutInterceptor;
+import com.example.util.ServerTimeoutManager;
 import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.InsecureServerCredentials;
@@ -15,25 +17,16 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 public class Server {
 
     public static void main(String[] args) throws Exception {
-        Consumer<String> logger = msg -> System.out.println("Server: " + msg);
-        int timeoutMillis = 100;
-        ServerInterceptor interceptor;
-        if (args.length > 0) {
-            // My way
-            var timeoutManager = new ServerTimeoutManager(timeoutMillis, TimeUnit.MILLISECONDS, logger);
-            Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
-            interceptor = new ServerCallTimeoutInterceptor(timeoutManager);
-        } else {
-            // Officially recommended way
-            var timeoutManager = new ContextTimeoutManager(timeoutMillis, TimeUnit.MILLISECONDS, logger);
-            Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
-            interceptor = new ContextTimeoutInterceptor(timeoutManager);
-        }
+        var timeoutManager = ServerTimeoutManager.newBuilder(100, TimeUnit.MILLISECONDS)
+            .setShouldInterrupt(true)
+            .setLogFunction(msg -> System.out.println("Server: " + msg))
+            .build();
+        Runtime.getRuntime().addShutdownHook(new Thread(timeoutManager::shutdown));
+        var interceptor = new ServerCallTimeoutInterceptor(timeoutManager);
 
         startGrpcServer(Executors.newFixedThreadPool(2), interceptor).awaitTermination();
     }
@@ -46,12 +39,12 @@ public class Server {
                 .build()
                 .start();
 
-        System.out.println("Server started.");
+        System.out.println("Server is started.");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 server.shutdown().awaitTermination(30, TimeUnit.SECONDS);
-                System.out.println("Server shutdown.");
+                System.out.println("Server is shutdown.");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
