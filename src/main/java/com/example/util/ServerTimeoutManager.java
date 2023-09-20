@@ -55,7 +55,7 @@ public class ServerTimeoutManager {
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
   private ServerTimeoutManager(int timeout, TimeUnit unit,
-                              boolean shouldInterrupt, Consumer<String> logFunction) {
+                               boolean shouldInterrupt, Consumer<String> logFunction) {
     this.timeout = timeout;
     this.unit = unit;
     this.shouldInterrupt = shouldInterrupt;
@@ -84,33 +84,48 @@ public class ServerTimeoutManager {
       if (c.cancellationCause() == null) {
         return;
       }
-      logFunction.accept("server call timeout");
+      if (logFunction != null) {
+        logFunction.accept("server call timeout for "
+            + serverCall.getMethodDescriptor().getFullMethodName());
+      }
       serverCall.close(Status.CANCELLED.withDescription("server call timeout"), new Metadata());
     };
     Context.CancellableContext context = Context.current().withDeadline(
-            Deadline.after(timeout, unit), scheduler);
+        Deadline.after(timeout, unit), scheduler);
     context.addListener(callCloser, MoreExecutors.directExecutor());
     return context;
   }
 
   /**
-   * Executes the application RPC invocation in the timeout context.
+   * Executes the application invocation in the timeout context.
+   * Skips execution if context has been cancelled.
+   *
+   * @param context The timeout context.
+   * @param invocation The application invocation that processes a request.
+   */
+  public void runWithContext(Context.CancellableContext context, Runnable invocation) {
+    if (context.isCancelled()) {
+      return;
+    }
+    context.run(invocation);
+  }
+
+  /**
+   * Executes the application invocation in the timeout context, may interrupt the current thread.
+   * Skips execution if context has been cancelled.
    *
    * <p>When the timeout is reached: It cancels the context around the RPC invocation. And
    * if shouldInterrupt is {@code true}, it also interrupts the current worker thread.
    *
    * @param context The timeout context.
-   * @param invocation The application RPC invocation that processes a request.
-   * @return true if a timeout is scheduled
+   * @param invocation The application invocation that processes a request.
    */
-  public boolean withInterruption(Context.CancellableContext context, Runnable invocation) {
-    if (timeout <= 0 || scheduler.isShutdown()) {
-      invocation.run();
-      return false;
+  public void runWithContextInterruptibly(Context.CancellableContext context, Runnable invocation) {
+    if (context.isCancelled()) {
+      return;
     }
-
     AtomicReference<Thread> threadRef =
-            shouldInterrupt ? new AtomicReference<>(Thread.currentThread()) : null;
+        shouldInterrupt ? new AtomicReference<>(Thread.currentThread()) : null;
     Context.CancellationListener interruption = c -> {
       if (c.cancellationCause() == null) {
         return;
@@ -121,12 +136,12 @@ public class ServerTimeoutManager {
           thread.interrupt();
           if (logFunction != null) {
             logFunction.accept(
-                    "Interrupted RPC thread "
-                            + thread.getName()
-                            + " for timeout at "
-                            + timeout
-                            + " "
-                            + unit);
+                "Interrupted RPC thread "
+                    + thread.getName()
+                    + " for timeout at "
+                    + timeout
+                    + " "
+                    + unit);
           }
         }
       }
@@ -143,8 +158,6 @@ public class ServerTimeoutManager {
         Thread.interrupted();
       }
     }
-
-    return true;
   }
 
   /** Builder for constructing ServerTimeoutManager instances. */
